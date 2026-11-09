@@ -48,7 +48,7 @@ Para permitir que os avaliadores executem as tarefas com precisão factual e con
 +---------------------------------------------------------------------------------+
 | Idade: 42 anos                                                                  |
 | Local de Atuação: Pit Lane (tenda de boxes / pista de corrida RC)               |
-| Perfil Tecnológico: Intermediário a Avançado em telemetria, hardware e planilhas|
+| Perfil Tecnológico: Intermediário a Avançado em telemetria, hardware e planilhas |
 | Dispositivo de Acesso: Notebook em ambiente externo/boxes                      |
 +---------------------------------------------------------------------------------+
 ```
@@ -135,9 +135,8 @@ O sistema Web incorpora o catálogo oficial completo com as fichas técnicas, ch
 
 1.  **Dashboard Estratégico e Comparativo de Pilotos:**
     *   Painel centralizado com os indicadores vitais dos dois pilotos da equipe selecionada (comutador disponível para inspecionar qualquer uma das 6 equipes).
-    *   Módulo de **Comparativo de Pilotos** lado a lado: tempo da última volta, melhor volta individual na prova, média das últimas 3 voltas e delta de tempo relativo entre os companheiros.
+    *   Módulo de **Comparativo de Pilotos** lado a lado com exibição pareada dos dois competidores da equipe: posição na prova, tempo da última volta, melhor volta individual na prova, média das últimas 3 voltas e delta de tempo relativo entre os companheiros.
     *   Visão de alta densidade sem rolagem obrigatória (*above the fold*), projetada para permitir leitura diagnóstica em **menos de 5 segundos**.
-    *   Exibição pareada dos dois pilotos: posição na prova, tempo da última volta, melhor volta individual na prova, média das últimas 3 voltas e delta de tempo relativo entre os companheiros.
 2.  **Tabela Comparativa Volta a Volta:**
     *   Histórico analítico de todas as voltas completadas na prova pelos dois pilotos da equipe.
     *   Destaques visuais para: melhor volta da corrida (*purple lap*), volta de pit stop / troca de bateria e voltas com perda significativa de ritmo.

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const DOCS_DIR = path.resolve('docs');
+const DOCS_DIR = path.resolve(import.meta.dirname, '..', 'docs');
 const CONCEPTION_DOC = path.join(DOCS_DIR, 'documento_de_concepcao.md');
 const MISSIONS_DOC = path.join(DOCS_DIR, 'missoes_de_usabilidade.md');
 const PERSONAS_DOC = path.join(DOCS_DIR, 'personas_dupla_web_ihc.md');
@@ -36,6 +36,7 @@ test('Documento de Concepção - Existência e Persona 1 (Técnico Beto Almeida)
 });
 
 test('Documento de Concepção - Fundamentação em Bastien & Scapin e Heurísticas de Nielsen', () => {
+  assert.ok(fs.existsSync(CONCEPTION_DOC), 'documento_de_concepcao.md must exist');
   const content = fs.readFileSync(CONCEPTION_DOC, 'utf-8');
 
   // Bastien & Scapin - 8 Criteria
@@ -91,33 +92,42 @@ test('Missões de Usabilidade 1 a 3 - Estrutura e Conteúdo', () => {
   const mission2Match = content.match(/###\s+Miss[ãa]o\s+(?:de\s+Usabilidade\s+)?2[\s\S]*?(?=###\s+Miss[ãa]o\s+(?:de\s+Usabilidade\s+)?3)/i);
   const mission3Match = content.match(/###\s+Miss[ãa]o\s+(?:de\s+Usabilidade\s+)?3[\s\S]*?(?=##\s+3|$)/i);
 
-  assert.ok(mission1Match, 'Missão 1 section found');
-  assert.ok(mission2Match, 'Missão 2 section found');
-  assert.ok(mission3Match, 'Missão 3 section found');
+  const missions = [
+    { index: 1, match: mission1Match },
+    { index: 2, match: mission2Match },
+    { index: 3, match: mission3Match }
+  ];
 
-  for (const [idx, mText] of [[1, mission1Match[0]], [2, mission2Match[0]], [3, mission3Match[0]]]) {
-    assert.match(mText, /Persona/i, `Missão ${idx} must state Persona`);
-    assert.match(mText, /Contexto/i, `Missão ${idx} must state Contexto`);
-    assert.match(mText, /Objetivo/i, `Missão ${idx} must state Objetivo`);
-    assert.match(mText, /Crit[ée]rio\s+de\s+Sucesso/i, `Missão ${idx} must state Critério de Sucesso`);
-    assert.match(mText, /Gabarito/i, `Missão ${idx} must contain deterministic Gabarito`);
+  for (const { index, match } of missions) {
+    assert.ok(match, `Missão ${index} section found`);
+    const missionText = match[0];
+    assert.match(missionText, /Persona/i, `Missão ${index} must state Persona`);
+    assert.match(missionText, /Contexto/i, `Missão ${index} must state Contexto`);
+    assert.match(missionText, /Objetivo/i, `Missão ${index} must state Objetivo`);
+    assert.match(missionText, /Crit[ée]rio\s+de\s+Sucesso/i, `Missão ${index} must state Critério de Sucesso`);
+    assert.match(missionText, /Gabarito/i, `Missão ${index} must contain deterministic Gabarito`);
   }
 
   // Check specific mission topics & gabarito values
   // Mission 1: Lap comparison
   assert.match(mission1Match[0], /Bruno\s+Costa/i, 'Mission 1 gabarito mentions Bruno Costa');
   assert.match(mission1Match[0], /18\.240/i, 'Mission 1 gabarito mentions 18.240s');
+  assert.match(mission1Match[0], /0\.170/i, 'Mission 1 gabarito mentions delta of 0.170s');
 
   // Mission 2: Battery autonomy
   assert.match(mission2Match[0], /14\s+voltas/i, 'Mission 2 gabarito mentions 14 voltas');
+  assert.match(mission2Match[0], /6\.78\s*V/i, 'Mission 2 gabarito mentions 6.78V');
+  assert.match(mission2Match[0], /22\s*%/i, 'Mission 2 gabarito mentions 22%');
   assert.match(mission2Match[0], /Aten[çc][ãa]o/i, 'Mission 2 gabarito mentions Atenção status');
 
   // Mission 3: Position, rhythm, and team score sum
   assert.match(mission3Match[0], /24\s+pontos/i, 'Mission 3 gabarito mentions 24 pontos acumulados');
   assert.match(mission3Match[0], /4\s+pontos/i, 'Mission 3 gabarito mentions 4 pontos projetados');
+  assert.match(mission3Match[0], /28\s+pontos/i, 'Mission 3 gabarito mentions 28 pontos total projetado');
 });
 
 test('Missões de Usabilidade 1 a 3 - Nenhuma instrução de navegação ou controle', () => {
+  assert.ok(fs.existsSync(MISSIONS_DOC), 'missoes_de_usabilidade.md must exist');
   const content = fs.readFileSync(MISSIONS_DOC, 'utf-8');
 
   // Extract text of Section 2 (Missions 1 to 3)
