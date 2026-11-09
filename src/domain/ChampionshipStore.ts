@@ -170,19 +170,33 @@ export class ChampionshipStore {
       const remainingLaps = Math.max(0, (race?.totalLaps ?? 20) - r.lapsCompleted);
 
       let drainPerLap = 4.2;
-      if (strategy === 'attack') drainPerLap = 5.5;
-      if (strategy === 'save_battery') drainPerLap = 3.2;
+      let paceAdjustment = 0;
+      if (strategy === 'attack') {
+        drainPerLap = 5.5;
+        paceAdjustment = -0.35;
+      } else if (strategy === 'save_battery') {
+        drainPerLap = 3.2;
+        paceAdjustment = 0.4;
+      }
 
       const estLapsRemaining = Math.max(0, Math.floor(r.batteryTelemetry.chargePercent / drainPerLap));
-      let health: 'ideal' | 'warning' | 'critical' = 'ideal';
+      let health: BatteryHealth = 'ideal';
 
       if (estLapsRemaining < remainingLaps) {
         health = estLapsRemaining < remainingLaps / 2 ? 'critical' : 'warning';
+      } else if (estLapsRemaining === remainingLaps && strategy !== 'save_battery') {
+        health = 'warning';
       }
+
+      const baseLap = r.lastLapTimeSeconds || 21.8;
+      const estimatedLapTimeSeconds = parseFloat((baseLap + paceAdjustment).toFixed(3));
+      const estimatedLapFormatted = `${estimatedLapTimeSeconds.toFixed(3)}s`;
 
       return {
         ...r,
         paceStrategy: strategy,
+        estimatedLapTimeSeconds,
+        estimatedLapFormatted,
         batteryTelemetry: {
           ...r.batteryTelemetry,
           drainPerLap,
@@ -200,6 +214,123 @@ export class ChampionshipStore {
       },
     };
     this.persistAndNotify();
+  }
+
+  public advanceSimulationLap(raceNumber: number = 4): boolean {
+    const race = this.state.races[raceNumber];
+    const results = this.state.raceResults[raceNumber];
+    if (!race || !results || race.status !== 'in_progress' || race.currentLap >= race.totalLaps) {
+      return false;
+    }
+
+    this.pushUndoSnapshot();
+    const nextLapNumber = race.currentLap + 1;
+    const isFinalLap = nextLapNumber >= race.totalLaps;
+    const remainingAfterThisLap = Math.max(0, race.totalLaps - nextLapNumber);
+
+    const simulatedResults = results.map((r) => {
+      const drain = r.batteryTelemetry.drainPerLap || 4.2;
+      const newCharge = Math.max(0, Math.round(r.batteryTelemetry.chargePercent - drain));
+      const newVoltage = parseFloat(Math.max(6.4, r.batteryTelemetry.voltage - drain * 0.011).toFixed(2));
+      const newBatteryLaps = r.batteryTelemetry.lapsCompleted + 1;
+      const estLapsRemaining = Math.max(0, Math.floor(newCharge / drain));
+
+      let health: BatteryHealth = 'ideal';
+      if (estLapsRemaining < remainingAfterThisLap) {
+        health = estLapsRemaining < remainingAfterThisLap / 2 || newCharge <= 5 ? 'critical' : 'warning';
+      } else if (estLapsRemaining === remainingAfterThisLap && r.paceStrategy !== 'save_battery' && remainingAfterThisLap > 0) {
+        health = 'warning';
+      }
+
+      const baseTime = 21.0 + r.position * 0.12;
+      let strategyDelta = 0;
+      if (r.paceStrategy === 'attack') strategyDelta = -0.35;
+      if (r.paceStrategy === 'save_battery') strategyDelta = 0.4;
+      if (r.batteryTelemetry.chargePercent <= 5) strategyDelta += 1.5;
+
+      const deterministicJitter = Math.sin(nextLapNumber + r.position) * 0.15;
+      const lapTimeSeconds = parseFloat((baseTime + strategyDelta + deterministicJitter).toFixed(3));
+      const formattedTime = `${lapTimeSeconds.toFixed(3)}s`;
+
+      const newLap = {
+        lapNumber: nextLapNumber,
+        lapTimeSeconds,
+        formattedTime,
+        position: r.position,
+        batteryId: r.activeBatteryId,
+      };
+
+      const updatedLaps = [...r.laps, newLap];
+      const totalTimeSeconds = parseFloat((r.totalTimeSeconds + lapTimeSeconds).toFixed(3));
+      const bestLapTimeSeconds = Math.min(r.bestLapTimeSeconds, lapTimeSeconds);
+      const bestLapFormatted = `${bestLapTimeSeconds.toFixed(3)}s`;
+
+      const updatedHistory = {
+        ...r.batteryHistory,
+        [r.activeBatteryId]: {
+          lapsCompleted: newBatteryLaps,
+          finalVoltage: newVoltage,
+          finalChargePercent: newCharge,
+        },
+      };
+
+      return {
+        ...r,
+        lapsCompleted: nextLapNumber,
+        totalTimeSeconds,
+        bestLapTimeSeconds,
+        bestLapFormatted,
+        lastLapTimeSeconds: lapTimeSeconds,
+        lastLapFormatted: formattedTime,
+        estimatedLapTimeSeconds: lapTimeSeconds,
+        estimatedLapFormatted: formattedTime,
+        batteryTelemetry: {
+          ...r.batteryTelemetry,
+          lapsCompleted: newBatteryLaps,
+          voltage: newVoltage,
+          chargePercent: newCharge,
+          estimatedLapsRemaining: estLapsRemaining,
+          health,
+        },
+        batteryHistory: updatedHistory,
+        laps: updatedLaps,
+      };
+    });
+
+    // Sort by totalTimeSeconds to update race positions deterministically
+    simulatedResults.sort((a, b) => a.totalTimeSeconds - b.totalTimeSeconds);
+    const finalizedResults = simulatedResults.map((r, index) => {
+      const pos = index + 1;
+      const lastIdx = r.laps.length - 1;
+      const updatedLaps = r.laps.map((l, idx) => (idx === lastIdx ? { ...l, position: pos } : l));
+      return {
+        ...r,
+        position: pos,
+        points: isFinalLap ? getOfficialPoints(pos) : r.points,
+        laps: updatedLaps,
+      };
+    });
+
+    const updatedRace = {
+      ...race,
+      currentLap: nextLapNumber,
+      status: isFinalLap ? ('completed' as const) : race.status,
+      winnerDriverId: isFinalLap ? finalizedResults[0]?.driverId : race.winnerDriverId,
+    };
+
+    this.state = {
+      ...this.state,
+      races: {
+        ...this.state.races,
+        [raceNumber]: updatedRace,
+      },
+      raceResults: {
+        ...this.state.raceResults,
+        [raceNumber]: finalizedResults,
+      },
+    };
+    this.persistAndNotify();
+    return true;
   }
 
   public performPitStop(raceNumber: number, driverId: string): void {
@@ -229,6 +360,9 @@ export class ChampionshipStore {
 
       // Pit stop penalty: 15.0s box stop penalty added to totalTimeSeconds
       const pitPenaltySeconds = 15.0;
+      const updatedLaps = r.laps.map((lap, idx) =>
+        idx === r.laps.length - 1 ? { ...lap, isPitStop: true } : lap
+      );
 
       return {
         ...r,
@@ -247,6 +381,7 @@ export class ChampionshipStore {
           estimatedLapsRemaining: estLaps,
           health,
         },
+        laps: updatedLaps,
       };
     });
 

@@ -200,6 +200,49 @@ describe('ChampionshipStore (Motor Determinístico do Campeonato)', () => {
       const lucasReverted = store.getState().raceResults[4].find((r) => r.driverId === 'drv-lucas-silveira')!;
       expect(lucasReverted.activeBatteryId).toBe('BAT-01');
     });
+
+    it('deve recalcular o ritmo estimado e a projeção de autonomia até a Volta 20 ao alterar a Estratégia de Ritmo', () => {
+      const initialLucas = store.getState().raceResults[4].find((r) => r.driverId === 'drv-lucas-silveira')!;
+      expect(initialLucas.paceStrategy).toBe('normal');
+      expect(initialLucas.batteryTelemetry.health).toBe('warning');
+      expect(initialLucas.batteryTelemetry.estimatedLapsRemaining).toBe(6);
+
+      // Mudar para Poupar Bateria: 26% / 3.2 = 8 voltas estimadas (>= 6 voltas restantes -> Ideal)
+      store.setPaceStrategy(4, 'drv-lucas-silveira', 'save_battery');
+      const savedLucas = store.getState().raceResults[4].find((r) => r.driverId === 'drv-lucas-silveira')!;
+      expect(savedLucas.paceStrategy).toBe('save_battery');
+      expect(savedLucas.batteryTelemetry.estimatedLapsRemaining).toBe(8);
+      expect(savedLucas.batteryTelemetry.health).toBe('ideal');
+      expect(savedLucas.estimatedLapTimeSeconds).toBeGreaterThan(initialLucas.lastLapTimeSeconds);
+
+      // Mudar para Ataque: 26% / 5.5 = 4 voltas estimadas (< 6 voltas restantes)
+      store.setPaceStrategy(4, 'drv-lucas-silveira', 'attack');
+      const attackLucas = store.getState().raceResults[4].find((r) => r.driverId === 'drv-lucas-silveira')!;
+      expect(attackLucas.paceStrategy).toBe('attack');
+      expect(attackLucas.batteryTelemetry.estimatedLapsRemaining).toBe(4);
+      expect(attackLucas.batteryTelemetry.health).toBe('warning');
+      expect(attackLucas.estimatedLapTimeSeconds).toBeLessThan(initialLucas.lastLapTimeSeconds);
+    });
+
+    it('deve avançar uma volta na simulação da Prova 4 sob controle explícito e permitir desfazer', () => {
+      expect(store.getState().races[4].currentLap).toBe(14);
+
+      const advanced = store.advanceSimulationLap(4);
+      expect(advanced).toBe(true);
+      expect(store.getState().races[4].currentLap).toBe(15);
+
+      const lucasAfter = store.getState().raceResults[4].find((r) => r.driverId === 'drv-lucas-silveira')!;
+      expect(lucasAfter.lapsCompleted).toBe(15);
+      expect(lucasAfter.laps).toHaveLength(15);
+      expect(lucasAfter.batteryTelemetry.lapsCompleted).toBe(15);
+      expect(lucasAfter.batteryTelemetry.chargePercent).toBeLessThan(26);
+
+      // Desfazer avanço de volta
+      store.undo();
+      expect(store.getState().races[4].currentLap).toBe(14);
+      const lucasReverted = store.getState().raceResults[4].find((r) => r.driverId === 'drv-lucas-silveira')!;
+      expect(lucasReverted.lapsCompleted).toBe(14);
+    });
   });
 
   describe('Regras do Feed e Cota de 4 Publicações', () => {

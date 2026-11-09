@@ -55,6 +55,8 @@ export interface DriverRaceResult {
   bestLapFormatted: string;
   lastLapTimeSeconds: number;
   lastLapFormatted: string;
+  estimatedLapTimeSeconds?: number;
+  estimatedLapFormatted?: string;
   points: number;
   batteriesUsed: string[];
   activeBatteryId: string;

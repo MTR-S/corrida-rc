@@ -69,9 +69,25 @@ export const App: React.FC<AppProps> = ({ store: propStore }) => {
   // Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't intercept if focus is inside an input or textarea
+      //Don't intercept if focus is inside an input, textarea, select, or button (for Spacebar)
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') {
+        return;
+      }
+
+      // Spacebar: Toggle live simulation pause/resume
+      if (e.code === 'Space' || e.key === ' ') {
+        if (target.tagName === 'BUTTON' || target.tagName === 'A') {
+          return;
+        }
+        e.preventDefault();
+        store.toggleSimulation();
+        const isPaused = store.getState().isSimulationPaused;
+        showToast(
+          isPaused
+            ? 'Simulação da Prova 4 pausada via atalho [Espaço].'
+            : 'Simulação da Prova 4 retomada via atalho [Espaço].'
+        );
         return;
       }
 

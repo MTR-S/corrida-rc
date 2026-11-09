@@ -121,6 +121,10 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
                 <kbd className="px-2 py-0.5 rounded bg-slate-800 font-mono font-bold text-sky-400 border border-slate-600">P</kbd>
               </div>
               <div className="flex items-center justify-between p-2 rounded bg-slate-900 border border-slate-700">
+                <span className="text-slate-300">Pausar / Retomar Simulação (Prova 4)</span>
+                <kbd className="px-2 py-0.5 rounded bg-slate-800 font-mono font-bold text-sky-400 border border-slate-600">Espaço</kbd>
+              </div>
+              <div className="flex items-center justify-between p-2 rounded bg-slate-900 border border-slate-700">
                 <span className="text-slate-300">Fechar Janela / Modal</span>
                 <kbd className="px-2 py-0.5 rounded bg-slate-800 font-mono font-bold text-sky-400 border border-slate-600">Esc</kbd>
               </div>

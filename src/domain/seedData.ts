@@ -428,6 +428,8 @@ export function buildDeterministicRaceResults(): Record<number, DriverRaceResult
         bestLapFormatted: `${bestLapSeconds.toFixed(3)}s`,
         lastLapTimeSeconds: parseFloat(lastLapSeconds.toFixed(3)),
         lastLapFormatted: `${lastLapSeconds.toFixed(3)}s`,
+        estimatedLapTimeSeconds: parseFloat(lastLapSeconds.toFixed(3)),
+        estimatedLapFormatted: `${lastLapSeconds.toFixed(3)}s`,
         points,
         batteriesUsed: ['BAT-01'],
         activeBatteryId: 'BAT-01',
