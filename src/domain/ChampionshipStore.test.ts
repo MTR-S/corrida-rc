@@ -140,6 +140,66 @@ describe('ChampionshipStore (Motor Determinístico do Campeonato)', () => {
         expect(standings[i].gapToAhead).toBe(standings[i - 1].totalPoints - standings[i].totalPoints);
       }
     });
+
+    it('deve calcular corretamente o Gap para o Líder e Gap Anterior na classificação de equipes', () => {
+      const teamStandings = store.getTeamStandings(3);
+      expect(teamStandings[0].gapToLeader).toBe(0);
+      expect(teamStandings[0].gapToAhead).toBe(0);
+
+      for (let i = 1; i < teamStandings.length; i++) {
+        expect(teamStandings[i].gapToLeader).toBe(teamStandings[0].totalPoints - teamStandings[i].totalPoints);
+        expect(teamStandings[i].gapToAhead).toBe(teamStandings[i - 1].totalPoints - teamStandings[i].totalPoints);
+      }
+    });
+  });
+
+  describe('Telemetria, Estratégia de Ritmo e Troca de Bateria (Pit Stop)', () => {
+    it('deve atualizar o consumo e telemetria de bateria ao alterar a estratégia de ritmo', () => {
+      store.setPaceStrategy(4, 'drv-lucas-silveira', 'save_battery');
+      const lucas = store.getState().raceResults[4].find((r) => r.driverId === 'drv-lucas-silveira');
+      expect(lucas?.paceStrategy).toBe('save_battery');
+      expect(lucas?.batteryTelemetry.drainPerLap).toBe(3.2);
+
+      store.setPaceStrategy(4, 'drv-lucas-silveira', 'attack');
+      const lucasAttack = store.getState().raceResults[4].find((r) => r.driverId === 'drv-lucas-silveira');
+      expect(lucasAttack?.paceStrategy).toBe('attack');
+      expect(lucasAttack?.batteryTelemetry.drainPerLap).toBe(5.5);
+    });
+
+    it('deve executar pit stop substituindo a bateria por uma nova com penalidade de tempo e registrar histórico', () => {
+      const lucasBefore = store.getState().raceResults[4].find((r) => r.driverId === 'drv-lucas-silveira')!;
+      const timeBefore = lucasBefore.totalTimeSeconds;
+      const initialEventsCount = (store.getState().raceEvents[4] || []).length;
+
+      store.performPitStop(4, 'drv-lucas-silveira');
+
+      const lucasAfter = store.getState().raceResults[4].find((r) => r.driverId === 'drv-lucas-silveira')!;
+      expect(lucasAfter.activeBatteryId).toBe('BAT-02');
+      expect(lucasAfter.batteriesUsed).toContain('BAT-02');
+      expect(lucasAfter.batteryTelemetry.chargePercent).toBe(100);
+      expect(lucasAfter.batteryTelemetry.voltage).toBe(7.4);
+      expect(lucasAfter.batteryTelemetry.health).toBe('ideal');
+
+      // Penalidade de tempo de box adicionada ao tempo total conforme regulamento
+      expect(lucasAfter.totalTimeSeconds).toBeGreaterThan(timeBefore);
+
+      // Histórico da bateria anterior preservado
+      expect(lucasAfter.batteryHistory['BAT-01']).toBeDefined();
+      expect(lucasAfter.batteryHistory['BAT-01'].lapsCompleted).toBe(lucasBefore.batteryTelemetry.lapsCompleted);
+
+      // Evento de box adicionado à corrida
+      const eventsAfter = store.getState().raceEvents[4] || [];
+      expect(eventsAfter.length).toBe(initialEventsCount + 1);
+      const pitEvent = eventsAfter[eventsAfter.length - 1];
+      expect(pitEvent.type).toBe('pit_stop');
+      expect(pitEvent.driverId).toBe('drv-lucas-silveira');
+
+      // Deve ser possível desfazer o pit stop
+      expect(store.canUndo()).toBe(true);
+      store.undo();
+      const lucasReverted = store.getState().raceResults[4].find((r) => r.driverId === 'drv-lucas-silveira')!;
+      expect(lucasReverted.activeBatteryId).toBe('BAT-01');
+    });
   });
 
   describe('Regras do Feed e Cota de 4 Publicações', () => {

@@ -36,7 +36,9 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ store, onShowToast }) 
       const t = getTeam(r.teamId);
       text += `P${r.position} - #${d?.number} ${d?.name} (${t?.shortCode}) - Melh. Volta: ${r.bestLapFormatted} - Última: ${r.lastLapFormatted} - Pontos: ${store.getOfficialPoints(r.position)}\n`;
     });
-    navigator.clipboard?.writeText(text);
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).catch(() => {});
+    }
     setCopied(true);
     onShowToast('Resultados copiados para a área de transferência!');
     setTimeout(() => setCopied(false), 2000);
@@ -262,9 +264,11 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ store, onShowToast }) 
                 onChange={(e) => setHistoricalRaceFilter(Number(e.target.value))}
                 className="bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-xs text-slate-200 focus:outline-none"
               >
-                <option value={1}>Prova 1</option>
-                <option value={2}>Prova 2</option>
-                <option value={3}>Prova 3</option>
+                {[1, 2, 3, 4, 5].map((num) => (
+                  <option key={num} value={num}>
+                    Prova {num}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -325,6 +329,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ store, onShowToast }) 
                     <th className="py-2.5 px-3 text-center">P2</th>
                     <th className="py-2.5 px-3 text-center">P3</th>
                     <th className="py-2.5 px-3 text-right">Gap Líder</th>
+                    <th className="py-2.5 px-3 text-right">Gap Anterior</th>
                     <th className="py-2.5 px-3 text-right">Total Pontos</th>
                   </tr>
                 </thead>
@@ -343,6 +348,9 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ store, onShowToast }) 
                       <td className="py-2.5 px-3 text-center font-mono text-slate-400">{ts.pointsByRace[3] ?? '—'}</td>
                       <td className="py-2.5 px-3 text-right font-mono text-slate-400">
                         {ts.gapToLeader > 0 ? `-${ts.gapToLeader} pts` : '—'}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono text-slate-400">
+                        {ts.gapToAhead > 0 ? `-${ts.gapToAhead} pts` : '—'}
                       </td>
                       <td className="py-2.5 px-3 text-right font-black text-amber-400 text-sm">
                         {ts.totalPoints} pts

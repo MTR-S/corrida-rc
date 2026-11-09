@@ -137,6 +137,19 @@ export function computeTeamStandings(
     const wins = (d1?.wins ?? 0) + (d2?.wins ?? 0);
     const podiums = (d1?.podiums ?? 0) + (d2?.podiums ?? 0);
 
+    const secondPlaces =
+      Object.values(d1?.pointsByRace ?? {}).filter((p) => p === 6).length +
+      Object.values(d2?.pointsByRace ?? {}).filter((p) => p === 6).length;
+
+    const thirdPlaces =
+      Object.values(d1?.pointsByRace ?? {}).filter((p) => p === 3).length +
+      Object.values(d2?.pointsByRace ?? {}).filter((p) => p === 3).length;
+
+    const bestRecentPoints = Math.max(
+      d1?.pointsByRace[upToRaceNumber] ?? 0,
+      d2?.pointsByRace[upToRaceNumber] ?? 0
+    );
+
     const driverScores = [
       {
         driverId: team.driverIds[0],
@@ -159,6 +172,9 @@ export function computeTeamStandings(
       pointsByRace,
       driverScores,
       wins,
+      secondPlaces,
+      thirdPlaces,
+      bestRecentPoints,
       podiums,
       gapToLeader: 0,
       gapToAhead: 0,
@@ -166,24 +182,39 @@ export function computeTeamStandings(
   });
 
   teamList.sort((a, b) => {
+    // 1. Total points descending
     if (b.totalPoints !== a.totalPoints) {
       return b.totalPoints - a.totalPoints;
     }
+    // 2. 1st places (wins) descending
     if (b.wins !== a.wins) {
       return b.wins - a.wins;
     }
-    if (b.podiums !== a.podiums) {
-      return b.podiums - a.podiums;
+    // 3. 2nd places descending
+    if (b.secondPlaces !== a.secondPlaces) {
+      return b.secondPlaces - a.secondPlaces;
     }
+    // 4. 3rd places descending
+    if (b.thirdPlaces !== a.thirdPlaces) {
+      return b.thirdPlaces - a.thirdPlaces;
+    }
+    // 5. Best placement (highest points) in most recent race
+    if (b.bestRecentPoints !== a.bestRecentPoints) {
+      return b.bestRecentPoints - a.bestRecentPoints;
+    }
+    // 6. Alphabetical fallback
     return a.teamName.localeCompare(b.teamName);
   });
 
   const leaderPoints = teamList.length > 0 ? teamList[0].totalPoints : 0;
 
-  return teamList.map((item, index) => ({
-    ...item,
-    position: index + 1,
-    gapToLeader: leaderPoints - item.totalPoints,
-    gapToAhead: index === 0 ? 0 : teamList[index - 1].totalPoints - item.totalPoints,
-  }));
+  return teamList.map((item, index) => {
+    const { secondPlaces, thirdPlaces, bestRecentPoints, ...teamStanding } = item;
+    return {
+      ...teamStanding,
+      position: index + 1,
+      gapToLeader: leaderPoints - item.totalPoints,
+      gapToAhead: index === 0 ? 0 : teamList[index - 1].totalPoints - item.totalPoints,
+    };
+  });
 }

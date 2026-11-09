@@ -45,11 +45,7 @@ export class ChampionshipStore {
     return seed;
   }
 
-  private persistAndNotify(recordUndo: boolean = true) {
-    if (recordUndo) {
-      // Store a deep clone of the current state before mutator modifies it,
-      // handled inside mutators by pushUndoSnapshot().
-    }
+  private persistAndNotify() {
     try {
       this.storage.setItem(STORAGE_KEY, JSON.stringify(this.state));
     } catch {
@@ -86,14 +82,14 @@ export class ChampionshipStore {
     if (this.undoHistory.length === 0) return false;
     const previousState = this.undoHistory.pop()!;
     this.state = previousState;
-    this.persistAndNotify(false);
+    this.persistAndNotify();
     return true;
   }
 
   public resetToDeterministicSeed(): void {
     this.pushUndoSnapshot();
     this.state = buildInitialChampionshipState();
-    this.persistAndNotify(false);
+    this.persistAndNotify();
   }
 
   public selectRace(raceNumber: number): void {
@@ -103,7 +99,7 @@ export class ChampionshipStore {
       ...this.state,
       selectedRaceNumber: raceNumber,
     };
-    this.persistAndNotify(false);
+    this.persistAndNotify();
   }
 
   public selectTeam(teamId: string): void {
@@ -113,7 +109,7 @@ export class ChampionshipStore {
       ...this.state,
       selectedTeamId: teamId,
     };
-    this.persistAndNotify(false);
+    this.persistAndNotify();
   }
 
   public selectPersona(persona: PersonaType): void {
@@ -125,7 +121,7 @@ export class ChampionshipStore {
       // Contextual default view depending on persona
       currentView: persona === 'tech_lead' ? 'dashboard' : 'results',
     };
-    this.persistAndNotify(false);
+    this.persistAndNotify();
   }
 
   public setCurrentView(view: AppView): void {
@@ -135,7 +131,7 @@ export class ChampionshipStore {
       ...this.state,
       currentView: view,
     };
-    this.persistAndNotify(false);
+    this.persistAndNotify();
   }
 
   public setTheme(theme: ThemeType): void {
@@ -145,7 +141,7 @@ export class ChampionshipStore {
       ...this.state,
       theme,
     };
-    this.persistAndNotify(false);
+    this.persistAndNotify();
   }
 
   public toggleTheme(): void {
@@ -159,7 +155,7 @@ export class ChampionshipStore {
       ...this.state,
       isSimulationPaused: !this.state.isSimulationPaused,
     };
-    this.persistAndNotify(false);
+    this.persistAndNotify();
   }
 
   public setPaceStrategy(raceNumber: number, driverId: string, strategy: PaceStrategy): void {
@@ -203,7 +199,7 @@ export class ChampionshipStore {
         [raceNumber]: updatedResults,
       },
     };
-    this.persistAndNotify(false);
+    this.persistAndNotify();
   }
 
   public performPitStop(raceNumber: number, driverId: string): void {
@@ -231,8 +227,12 @@ export class ChampionshipStore {
       const estLaps = Math.floor(100 / 4.2);
       const health: BatteryHealth = estLaps >= remainingLaps ? 'ideal' : 'warning';
 
+      // Pit stop penalty: 15.0s box stop penalty added to totalTimeSeconds
+      const pitPenaltySeconds = 15.0;
+
       return {
         ...r,
+        totalTimeSeconds: Math.round((r.totalTimeSeconds + pitPenaltySeconds) * 100) / 100,
         activeBatteryId: nextBatteryId,
         batteriesUsed: r.batteriesUsed.includes(nextBatteryId)
           ? r.batteriesUsed
@@ -277,7 +277,7 @@ export class ChampionshipStore {
         [raceNumber]: [...currentEvents, newEvent],
       },
     };
-    this.persistAndNotify(false);
+    this.persistAndNotify();
   }
 
   public getTeamPostQuota(raceNumber: number, teamId: string): {
@@ -321,7 +321,7 @@ export class ChampionshipStore {
     this.pushUndoSnapshot();
     const newPost: TeamPost = {
       ...postData,
-      id: `post-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      id: `post-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       timestamp: new Date().toLocaleString('pt-BR', {
         dateStyle: 'short',
         timeStyle: 'short',
@@ -337,7 +337,7 @@ export class ChampionshipStore {
       },
     };
 
-    this.persistAndNotify(false);
+    this.persistAndNotify();
     return { success: true };
   }
 
@@ -353,7 +353,7 @@ export class ChampionshipStore {
       ...this.state,
       teamPosts: updatedTeamPosts,
     };
-    this.persistAndNotify(false);
+    this.persistAndNotify();
   }
 
   // Domain queries

@@ -66,13 +66,21 @@ export const FeedView: React.FC<FeedViewProps> = ({ store, onShowToast }) => {
   };
 
   const handleCopyPressRelease = () => {
+    const p1 = (state.raceResults[raceNumber] || []).find((r) => r.position === 1);
+    const winnerDriver = state.drivers.find((d) => d.id === p1?.driverId);
+    const winnerTeam = state.teams.find((t) => t.id === p1?.teamId);
+
     const draft = state.pressReleaseDrafts[raceNumber] || {
-      headline: `Boletim de Imprensa: Resumo da ${race?.name ?? 'Prova'}`,
-      body: `Confira os principais fatos e declarações oficiais após a etapa...`,
+      headline: `Boletim de Imprensa: Resumo Oficial da ${race?.name ?? `Prova ${raceNumber}`}`,
+      body: p1
+        ? `Vitória de ${winnerDriver?.name ?? 'Piloto'} (${winnerTeam?.name ?? 'Equipe'}) na etapa ${race?.name}. Volta mais rápida de ${race?.fastestLapFormatted ?? p1.bestLapFormatted}. Acompanhe as declarações oficiais no feed.`
+        : `Confira os principais fatos e declarações oficiais após a etapa...`,
     };
 
     const text = `=== BOLETIM DE IMPRENSA — RC EM FOCO ===\n${draft.headline}\n\n${draft.body}\n\nEtapa: ${race?.name} (${race?.date})\nCanal: RC em Foco • Repórter Camila Rocha`;
-    navigator.clipboard?.writeText(text);
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).catch(() => {});
+    }
     setCopiedPress(true);
     onShowToast('Boletim de imprensa copiado para a área de transferência!');
     setTimeout(() => setCopiedPress(false), 2000);
@@ -262,7 +270,10 @@ export const FeedView: React.FC<FeedViewProps> = ({ store, onShowToast }) => {
                       </span>
                       <button
                         onClick={() => {
-                          navigator.clipboard?.writeText(`"${post.content}" — ${post.author} (${team?.name})`);
+                          const quote = `"${post.content}" — ${post.author} (${team?.name})`;
+                          if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+                            navigator.clipboard.writeText(quote).catch(() => {});
+                          }
                           onShowToast('Citação copiada para o boletim!');
                         }}
                         className="text-sky-400 hover:text-sky-300 font-semibold"
